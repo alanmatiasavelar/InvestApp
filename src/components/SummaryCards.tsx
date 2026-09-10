@@ -1,6 +1,7 @@
 import type { FxRates } from '../lib/fx'
-
-const fmtUsd = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
+import { fromUsd } from '../lib/fx'
+import { fmtMoney } from '../lib/format'
+import type { Currency } from '../lib/types'
 
 interface Props {
   totalUsd: number
@@ -8,6 +9,7 @@ interface Props {
   coveragePct: number
   investmentCount: number
   fx: FxRates
+  displayCurrency: Currency
 }
 
 function Card({ label, value, note }: { label: string; value: string; note?: string }) {
@@ -20,10 +22,15 @@ function Card({ label, value, note }: { label: string; value: string; note?: str
   )
 }
 
-export function SummaryCards({ totalUsd, apy, coveragePct, investmentCount, fx }: Props) {
+export function SummaryCards({ totalUsd, apy, coveragePct, investmentCount, fx, displayCurrency }: Props) {
+  const displayTotal = fromUsd(totalUsd, displayCurrency, fx.rates)
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-      <Card label="Total (USD)" value={fmtUsd(totalUsd)} note={`${investmentCount} investment${investmentCount === 1 ? '' : 's'}`} />
+      <Card
+        label={`Total (${displayCurrency})`}
+        value={fmtMoney(displayTotal, displayCurrency)}
+        note={`${investmentCount} investment${investmentCount === 1 ? '' : 's'}`}
+      />
       <Card
         label="Blended APY"
         value={apy != null ? `${(apy * 100).toFixed(1)}%` : '—'}
@@ -32,7 +39,11 @@ export function SummaryCards({ totalUsd, apy, coveragePct, investmentCount, fx }
       <Card
         label="FX rates"
         value={fx.source === 'live' ? 'Live' : 'Offline'}
-        note={fx.source === 'live' ? `as of ${new Date(fx.fetchedAt).toLocaleTimeString()}` : 'using approximate fallback rates'}
+        note={
+          fx.source === 'live'
+            ? `as of ${new Date(fx.fetchedAt).toLocaleTimeString()}`
+            : 'using approximate fallback rates'
+        }
       />
     </div>
   )

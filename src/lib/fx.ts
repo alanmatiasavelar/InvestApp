@@ -59,3 +59,8 @@ export function toUsd(amount: number, currency: Currency, rates: Record<Currency
   const rate = rates[currency] ?? 1
   return amount / rate
 }
+
+/** Converts a USD amount into `currency` using the given rate table (units of currency per 1 USD). */
+export function fromUsd(amountUsd: number, currency: Currency, rates: Record<Currency, number>): number {
+  return amountUsd * (rates[currency] ?? 1)
+}

@@ -1,9 +1,11 @@
 import type { CurrencyBreakdownRow, TypeBreakdownRow } from '../lib/calculations'
 import { currencyColor, typeColor } from '../lib/palette'
 import { usePrefersDark } from '../lib/useTheme'
+import { fromUsd } from '../lib/fx'
+import { fmtMoney } from '../lib/format'
+import type { Currency } from '../lib/types'
 import { BarRow } from './BarRow'
 
-const fmtUsd = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 const TYPE_LABELS: Record<string, string> = {
   stock: 'Stocks',
   etf: 'ETFs / Funds',
@@ -13,7 +15,13 @@ const TYPE_LABELS: Record<string, string> = {
   other: 'Other',
 }
 
-export function CurrencyPanel({ rows }: { rows: CurrencyBreakdownRow[] }) {
+interface CurrencyPanelProps {
+  rows: CurrencyBreakdownRow[]
+  displayCurrency: Currency
+  rates: Record<Currency, number>
+}
+
+export function CurrencyPanel({ rows, displayCurrency, rates }: CurrencyPanelProps) {
   const dark = usePrefersDark()
   if (rows.length === 0) return null
   const max = Math.max(...rows.map((r) => r.usdTotal))
@@ -26,7 +34,7 @@ export function CurrencyPanel({ rows }: { rows: CurrencyBreakdownRow[] }) {
             key={r.currency}
             label={r.currency}
             sublabel={`${r.percentOfPortfolio.toFixed(0)}%`}
-            valueLabel={fmtUsd(r.usdTotal)}
+            valueLabel={fmtMoney(fromUsd(r.usdTotal, displayCurrency, rates), displayCurrency)}
             pctOfMax={(r.usdTotal / max) * 100}
             color={currencyColor(r.currency, dark ? 'dark' : 'light')}
           />
@@ -36,7 +44,13 @@ export function CurrencyPanel({ rows }: { rows: CurrencyBreakdownRow[] }) {
   )
 }
 
-export function TypePanel({ rows }: { rows: TypeBreakdownRow[] }) {
+interface TypePanelProps {
+  rows: TypeBreakdownRow[]
+  displayCurrency: Currency
+  rates: Record<Currency, number>
+}
+
+export function TypePanel({ rows, displayCurrency, rates }: TypePanelProps) {
   const dark = usePrefersDark()
   if (rows.length === 0) return null
   const max = Math.max(...rows.map((r) => r.usdTotal))
@@ -49,7 +63,7 @@ export function TypePanel({ rows }: { rows: TypeBreakdownRow[] }) {
             key={r.type}
             label={TYPE_LABELS[r.type] ?? r.type}
             sublabel={`${r.percentOfPortfolio.toFixed(0)}%`}
-            valueLabel={fmtUsd(r.usdTotal)}
+            valueLabel={fmtMoney(fromUsd(r.usdTotal, displayCurrency, rates), displayCurrency)}
             pctOfMax={(r.usdTotal / max) * 100}
             color={typeColor(r.type, dark ? 'dark' : 'light')}
           />

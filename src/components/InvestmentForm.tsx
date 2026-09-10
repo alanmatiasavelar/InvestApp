@@ -1,24 +1,31 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { CURRENCIES, INVESTMENT_TYPES, type Currency, type EntryMode, type Investment, type InvestmentType } from '../lib/types'
+
+export interface InvestmentInput {
+  name: string
+  ticker?: string
+  type: InvestmentType
+  currency: Currency
+  value: number
+  percent?: number
+  manualRatePct?: number
+  purchaseDate?: string
+}
 
 interface Props {
   entryMode: EntryMode
-  onAdd: (input: {
-    name: string
-    ticker?: string
-    type: InvestmentType
-    currency: Currency
-    value: number
-    percent?: number
-    manualRatePct?: number
-    purchaseDate?: string
-  }) => void
+  /** When set, the form edits this investment instead of adding a new one. */
+  initial?: Investment
+  /** Percent already allocated to other investments (only relevant in percent mode) — caps what this form can add. */
+  otherPercentTotal: number
+  onSubmit: (input: InvestmentInput) => void
+  onCancel?: () => void
 }
 
 const needsTicker = (t: InvestmentType) => t === 'stock' || t === 'etf' || t === 'crypto'
 const needsManualRate = (t: InvestmentType) => t === 'fixed_income' || t === 'cash' || t === 'other'
 
-export function InvestmentForm({ entryMode, onAdd }: Props) {
+export function InvestmentForm({ entryMode, initial, otherPercentTotal, onSubmit, onCancel }: Props) {
   const [name, setName] = useState('')
   const [ticker, setTicker] = useState('')
   const [type, setType] = useState<InvestmentType>('stock')
@@ -27,6 +34,29 @@ export function InvestmentForm({ entryMode, onAdd }: Props) {
   const [manualRate, setManualRate] = useState('')
   const [purchaseDate, setPurchaseDate] = useState('')
   const [error, setError] = useState<string | null>(null)
+
+  // Resync fields whenever we switch which investment (if any) is being edited.
+  useEffect(() => {
+    setError(null)
+    if (initial) {
+      setName(initial.name)
+      setTicker(initial.ticker ?? '')
+      setType(initial.type)
+      setCurrency(initial.currency)
+      setAmount(String(entryMode === 'percent' ? (initial.percent ?? '') : initial.value))
+      setManualRate(initial.manualRatePct != null ? String(initial.manualRatePct * 100) : '')
+      setPurchaseDate(initial.purchaseDate ?? '')
+    } else {
+      setName('')
+      setTicker('')
+      setAmount('')
+      setManualRate('')
+      setPurchaseDate('')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initial?.id])
+
+  const maxAllowedPercent = Math.max(0, 100 - otherPercentTotal)
 
   function reset() {
     setName('')
@@ -43,11 +73,15 @@ export function InvestmentForm({ entryMode, onAdd }: Props) {
     if (!amount || Number.isNaN(amountNum) || amountNum <= 0) {
       return setError(entryMode === 'percent' ? 'Enter a valid percent (0-100).' : 'Enter a valid value greater than 0.')
     }
-    if (entryMode === 'percent' && amountNum > 100) return setError('Percent cannot exceed 100.')
+    if (entryMode === 'percent' && amountNum > maxAllowedPercent + 0.05) {
+      return setError(
+        `Only ${maxAllowedPercent.toFixed(1)}% is unallocated. Reduce another investment first (or lower this one).`,
+      )
+    }
     if (needsTicker(type) && !ticker.trim()) return setError('Add a ticker symbol so a live rate can be fetched (e.g. AAPL, SPY, BTC).')
 
     setError(null)
-    onAdd({
+    onSubmit({
       name: name.trim(),
       ticker: ticker.trim() || undefined,
       type,
@@ -57,12 +91,19 @@ export function InvestmentForm({ entryMode, onAdd }: Props) {
       manualRatePct: manualRate ? Number(manualRate) / 100 : undefined,
       purchaseDate: purchaseDate || undefined,
     })
-    reset()
+    if (!initial) reset()
   }
 
   return (
     <form onSubmit={handleSubmit} className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-      <h3 className="mb-3 text-sm font-semibold text-gray-900 dark:text-gray-100">Add investment</h3>
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{initial ? 'Edit investment' : 'Add investment'}</h3>
+        {initial && (
+          <button type="button" onClick={onCancel} className="text-xs font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+            Cancel
+          </button>
+        )}
+      </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <label className="col-span-2 flex flex-col gap-1 text-xs font-medium text-gray-600 dark:text-gray-400">
           Name
@@ -117,7 +158,7 @@ export function InvestmentForm({ entryMode, onAdd }: Props) {
         )}
 
         <label className="flex flex-col gap-1 text-xs font-medium text-gray-600 dark:text-gray-400">
-          {entryMode === 'percent' ? '% of total' : `Value (${currency})`}
+          {entryMode === 'percent' ? `% of total (up to ${maxAllowedPercent.toFixed(1)}%)` : `Value (${currency})`}
           <input
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
@@ -156,10 +197,8 @@ export function InvestmentForm({ entryMode, onAdd }: Props) {
         type="submit"
         className="mt-3 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
       >
-        Add investment
+        {initial ? 'Save changes' : 'Add investment'}
       </button>
     </form>
   )
 }
-
-export type { Investment }

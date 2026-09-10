@@ -48,10 +48,13 @@ export interface Portfolio {
   /** Only used when entryMode === 'percent': the total portfolio value and its currency. */
   totalValue?: number
   totalCurrency?: Currency
+  /** Currency all summary totals/breakdowns are displayed in. Defaults to USD. */
+  displayCurrency?: Currency
   investments: Investment[]
 }
 
 export const emptyPortfolio: Portfolio = {
   entryMode: 'value',
+  displayCurrency: 'USD',
   investments: [],
 }

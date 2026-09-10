@@ -6,7 +6,7 @@ function withTimeout(ms: number): { signal: AbortSignal; cancel: () => void } {
   return { signal: controller.signal, cancel: () => clearTimeout(timer) }
 }
 
-interface PricePoint {
+export interface PricePoint {
   date: string // YYYY-MM-DD
   close: number
 }
@@ -142,4 +142,13 @@ export async function fetchCryptoReturn(ticker: string, sinceDate?: string): Pro
 /** Fetches the S&P 500's annualized return over the same lookback window, for benchmarking. Uses SPY (a highly liquid ETF tracking the index) via Stooq. */
 export async function fetchSp500Return(sinceDate?: string): Promise<RateInfo> {
   return fetchStockReturn('spy', sinceDate)
+}
+
+/** Fetches SPY's full daily price history, for plotting a growth-over-time comparison. */
+export async function fetchSp500History(): Promise<PricePoint[]> {
+  try {
+    return await fetchStooqHistory('spy.us')
+  } catch {
+    return []
+  }
 }
