@@ -1,7 +1,46 @@
 # InvestApp
 
-A client-side investment portfolio manager. Everything runs in the browser and
-persists to `localStorage` — there's no backend or account system.
+An investment portfolio manager. Portfolio data lives client-side in
+`localStorage`; accounts, the free trial, and billing are backed by a
+dedicated Supabase project (Postgres + Auth + Edge Functions) and Stripe.
+
+## Accounts & billing
+
+- **1 month free, then $2/month per account.** Signing up starts a 30-day
+  trial (`profiles.trial_ends_at`, set automatically on signup). Once it
+  ends, the app shows a paywall with an "Upgrade" button until the user
+  subscribes.
+- **Auth**: Supabase email/password auth (`src/components/AuthScreen.tsx`).
+- **Trial/subscription state**: a `profiles` table (one row per user, RLS
+  restricted to the owner) tracks `trial_ends_at` and `subscription_status`
+  (`trialing` / `active` / `past_due` / `canceled`). Only a signup trigger and
+  the Stripe webhook (both elevated-privilege, server-side) can write to it —
+  the client can only read its own row.
+- **Billing**: Stripe Checkout. `supabase/functions/create-checkout-session`
+  creates a Checkout Session for the logged-in user (creating a Stripe
+  Customer on first use); `supabase/functions/stripe-webhook` verifies
+  Stripe's signature and updates `subscription_status` on
+  `checkout.session.completed` / `customer.subscription.updated` /
+  `customer.subscription.deleted`.
+
+### One-time setup (for whoever deploys this)
+
+1. **Supabase**: create a project, then apply the schema in
+   `supabase/migrations/`. Copy `.env.example` to `.env.local` and fill in
+   `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` (Project Settings → API —
+   both are safe to expose client-side).
+2. **Stripe**: create a recurring Price for $2.00/month (Product catalog →
+   Add product). In Supabase, deploy the two functions in
+   `supabase/functions/` and set these **Edge Function secrets** (Project
+   Settings → Edge Functions → Secrets — never put these in `.env` files or
+   commit them):
+   - `STRIPE_SECRET_KEY` — your Stripe secret key
+   - `STRIPE_PRICE_ID` — the Price ID from the product you created
+   - `STRIPE_WEBHOOK_SECRET` — shown when you add the webhook endpoint below
+3. In the Stripe Dashboard, add a webhook endpoint pointing at
+   `<your-supabase-url>/functions/v1/stripe-webhook`, subscribed to
+   `checkout.session.completed`, `customer.subscription.updated`, and
+   `customer.subscription.deleted`.
 
 ## Features
 
